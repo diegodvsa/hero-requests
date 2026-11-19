@@ -47,8 +47,8 @@
   // ---------- painel ----------
   function showPanel() {
     mode = 'panel';
-    $('#panel').hidden = false; $('#settings').hidden = true;
-    $('#btn-settings').hidden = false;
+    $('#panel').hidden = false; $('#settings').hidden = true; $('#overlay-ed').hidden = true;
+    $('#btn-settings').hidden = false; $('#btn-overlay').hidden = false;
     renderPanel(); renderChips();
   }
 
@@ -135,6 +135,13 @@
     if (b) doAct(b.dataset.act, b.dataset.id);
   });
   $('#btn-settings').addEventListener('click', function () { openSettings(false); });
+  function openOverlayEditor() {
+    mode = 'overlay';
+    $('#panel').hidden = true; $('#settings').hidden = true;
+    OverlayEditor.open($('#overlay-ed'), api, toast, showPanel);
+  }
+  $('#btn-overlay').addEventListener('click', openOverlayEditor);
+  $('#btn-ov-edit').addEventListener('click', openOverlayEditor);
   $('#btn-clear').addEventListener('click', function () {
     if (state && state.queue.items.length && confirm('Remover todos os pedidos da fila?')) api('/api/queue/clear').catch(function (e) { toast(e.message); });
   });
@@ -172,8 +179,8 @@
   async function openSettings(wizard) {
     try { cfg = await api('/api/config', 'GET'); } catch (e) { toast(e.message); return; }
     mode = wizard ? 'wizard' : 'settings'; step = 0;
-    $('#panel').hidden = true; $('#settings').hidden = false;
-    $('#btn-settings').hidden = wizard;
+    $('#panel').hidden = true; $('#settings').hidden = false; $('#overlay-ed').hidden = true;
+    $('#btn-settings').hidden = wizard; $('#btn-overlay').hidden = wizard;
     buildSettings();
   }
 
@@ -221,15 +228,14 @@
       ck('f-ru-dup', 'Bloquear música que já está na fila', cfg.rules.blockDuplicates) +
       ck('f-ru-prio', 'Subs, VIPs e moderadores furam a fila', cfg.rules.priorityRoles, 'Entram depois do último pedido prioritário. O streamer nunca tem limite.') + '</div>';
 
-    h += '<div class="sec" data-step="3"><h3>4. Site público e overlay</h3>' +
+    h += '<div class="sec" data-step="3"><h3>4. Site público</h3>' +
       '<p class="help" style="margin-top:0">Opcional. Para os viewers verem a lista no GitHub Pages, informe o repositório e um token. Dá para configurar depois.</p>' +
       fld('f-st-repo', 'Repositório no GitHub', cfg.site.repo, { ph: 'usuario/hero-requests' }) +
       fld('f-st-token', 'Token do GitHub', '', { type: 'password', ph: cfg.siteTokenSet ? '(salvo) deixe em branco para manter' : 'github_pat_…', help: 'Token com permissão Contents: leitura e escrita só nesse repositório.' }) +
       (cfg.siteTokenSet ? ck('f-st-token-clear', 'Remover o token salvo', false) : '') +
       ck('f-st-auto', 'Publicar a fila automaticamente', cfg.site.autoPublish, 'Atualiza o site alguns segundos depois de cada mudança.') +
       fld('f-st-url', 'Endereço do site (opcional)', cfg.site.url, { ph: 'https://usuario.github.io/hero-requests/', help: 'Usado no comando !lista do chat.' }) +
-      '<div class="row"><div class="grow">' + fld('f-ov-items', 'Músicas na fila do overlay', cfg.overlay.items, { type: 'number', min: 1 }) + '</div>' +
-      '<div class="grow"><label class="f"><span>Cor de destaque</span><input class="inp" id="f-ov-accent" type="color" value="' + esc(cfg.overlay.accent) + '" style="padding:2px;height:36px"></label></div></div>' +
+      '<p class="help">A aparência do overlay (cores, fonte, opacidade...) fica no botão <b>Overlay</b> do painel.</p>' +
       (wiz ? '' : '<details><summary>Avançado</summary>' + fld('f-port', 'Porta do painel', cfg.port, { type: 'number', min: 1024, help: 'Reinicie o app depois de mudar.' }) + '</details>') + '</div>';
 
     h += '<div class="sec" data-step="4"><h3>Tudo pronto</h3>' +
@@ -323,7 +329,7 @@
         token: tokenValue('f-st-token', 'f-st-token-clear'),
         autoPublish: $('#f-st-auto').checked, url: $('#f-st-url').value
       },
-      overlay: { items: +$('#f-ov-items').value, accent: $('#f-ov-accent').value }
+      overlay: cfg.overlay
     };
   }
 

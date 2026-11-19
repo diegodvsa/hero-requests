@@ -259,3 +259,47 @@ func TestConfigNormalize(t *testing.T) {
 		t.Error("view não pode vazar tokens")
 	}
 }
+
+func TestSourceField(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "s.json")
+	os.WriteFile(p, []byte(`[{"artist":"A","name":"B","source":"rb3"},{"artist":"C","name":"D","metadata":{"Source":"customs"}}]`), 0o644)
+	songs, err := loadJSON(p)
+	if err != nil || len(songs) != 2 || songs[0].Source != "rb3" || songs[1].Source != "customs" {
+		t.Fatalf("%+v %v", songs, err)
+	}
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "song.ini"), []byte("[song]\nname=X\nartist=Y\nsource = gh3\n"), 0o644)
+	ini, _ := scanFolder(dir)
+	if len(ini) != 1 || ini[0].Source != "gh3" {
+		t.Errorf("song.ini: %+v", ini)
+	}
+}
+
+func TestOverlayNormalize(t *testing.T) {
+	d := defaultOverlay()
+	if d != d.Normalize() {
+		t.Error("o padrão deve ser estável")
+	}
+	o := d
+	o.Items, o.Width, o.FontSize = 99, 5, 0
+	o.Accent, o.BgColor = "vermelho", "#12345"
+	o.BgOpacity, o.Blur, o.BorderWidth = 0, 0, 0 // zero é válido nesses campos
+	o.Corner = "meio"
+	o.FontFamily = "Arial; } body{display:none"
+	o.CustomCSS = strings.Repeat("a", 30000)
+	n := o.Normalize()
+	if n.Items != 12 || n.Width != d.Width || n.FontSize != d.FontSize || n.Accent != d.Accent || n.BgColor != d.BgColor || n.Corner != "tr" {
+		t.Errorf("limites: %+v", n)
+	}
+	if n.BgOpacity != 0 || n.Blur != 0 || n.BorderWidth != 0 {
+		t.Errorf("zero deve ser aceito: %+v", n)
+	}
+	if n.FontFamily != d.FontFamily || len(n.CustomCSS) != 20000 {
+		t.Errorf("fonte/css: %q %d", n.FontFamily, len(n.CustomCSS))
+	}
+	g := d
+	g.FontFamily, g.FontGoogle = "Press Start 2P", true
+	if g.Normalize().FontFamily != "Press Start 2P" {
+		t.Error("nome de fonte do Google deve passar")
+	}
+}

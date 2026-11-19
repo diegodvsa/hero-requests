@@ -106,7 +106,7 @@ func (p *Publisher) PublishAll() error {
 
 type pubSong struct {
 	Updated string     `json:"updated"`
-	Songs   [][]string `json:"songs"` // artista, música, álbum, gênero, charter, ano
+	Songs   [][]string `json:"songs"` // artista, música, álbum, gênero, charter, ano, fonte
 }
 
 type pubItem struct {
@@ -135,7 +135,7 @@ func (p *Publisher) PublishSongs(force bool) error {
 	}
 	rows := make([][]string, len(songs))
 	for i, s := range songs {
-		rows[i] = []string{s.Artist, s.Title, s.Album, s.Genre, s.Charter, s.Year}
+		rows[i] = []string{s.Artist, s.Title, s.Album, s.Genre, s.Charter, s.Year, s.Source}
 	}
 	b, _ := json.Marshal(pubSong{Updated: time.Now().UTC().Format(time.RFC3339), Songs: rows})
 	// o hash ignora a data, para não republicar à toa

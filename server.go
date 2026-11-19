@@ -30,6 +30,23 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, a.Config().View()) })
 	mux.HandleFunc("PUT /api/config", a.handleConfig)
 
+	mux.HandleFunc("GET /api/overlay/defaults", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, defaultOverlay()) })
+	mux.HandleFunc("PUT /api/overlay", func(w http.ResponseWriter, r *http.Request) {
+		var o OverlayCfg
+		if !readJSON(w, r, &o) {
+			return
+		}
+		a.mu.Lock()
+		a.cfg.Overlay = o.Normalize()
+		cfg := a.cfg
+		a.mu.Unlock()
+		if err := saveConfig(a.dir, cfg); err != nil {
+			writeJSON(w, 500, map[string]string{"error": "não consegui salvar: " + err.Error()})
+			return
+		}
+		a.broadcast() // o OBS atualiza na hora, sem recarregar
+		writeJSON(w, 200, cfg.Overlay)
+	})
 	mux.HandleFunc("GET /api/songs/search", func(w http.ResponseWriter, r *http.Request) {
 		res := a.lib.Search(r.URL.Query().Get("q"), 20)
 		out := make([]map[string]any, len(res))
@@ -206,6 +223,7 @@ func (a *App) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	old := a.Config()
 	merged := old.Merge(n)
+	merged.Overlay = old.Overlay // o overlay tem tela e endpoint próprios
 	if err := saveConfig(a.dir, merged); err != nil {
 		writeJSON(w, 500, map[string]string{"error": "não consegui salvar: " + err.Error()})
 		return

@@ -27,6 +27,7 @@ type Song struct {
 	Genre   string `json:"genre,omitempty"`
 	Charter string `json:"charter,omitempty"`
 	Year    string `json:"year,omitempty"`
+	Source  string `json:"source,omitempty"`
 
 	nArtist string
 	nTitle  string
@@ -243,6 +244,7 @@ var keyAliases = map[string][]string{
 	"genre":   {"genre", "genres"},
 	"charter": {"charter", "charters", "frets", "author", "chartedby"},
 	"year":    {"year", "releaseyear"},
+	"source":  {"source", "sources", "sourcename", "origin"},
 }
 
 // loadJSON lê a exportação de músicas do jogo. O formato é tolerante:
@@ -273,6 +275,7 @@ func loadJSON(path string) ([]*Song, error) {
 			Genre:   pick(flat, "genre"),
 			Charter: pick(flat, "charter"),
 			Year:    pick(flat, "year"),
+			Source:  pick(flat, "source"),
 		}
 		if s.Title != "" {
 			songs = append(songs, s)
@@ -423,6 +426,8 @@ func parseIni(path string) *Song {
 			}
 		case "year":
 			s.Year = strings.TrimPrefix(v, ", ")
+		case "source":
+			s.Source = v
 		}
 	}
 	if s.Title == "" {

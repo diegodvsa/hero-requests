@@ -60,23 +60,15 @@ type SiteCfg struct {
 	URL         string `json:"url"` // opcional, para o comando !lista
 }
 
-type OverlayCfg struct {
-	Items  int    `json:"items"`
-	Accent string `json:"accent"`
-}
-
 func defaultConfig() Config {
 	return Config{
-		Port:   7777,
-		Twitch: TwitchCfg{Enabled: true},
-		Kick:   KickCfg{Enabled: true},
-		Songs:  SongsCfg{Mode: "json"},
-		Rules:  Rules{MaxPerUser: 2, MaxQueue: 50, BlockDuplicates: true, PriorityRoles: false},
-		Site:   SiteCfg{Branch: "data", AutoPublish: true},
-		Overlay: OverlayCfg{
-			Items:  5,
-			Accent: "#ff8a3d",
-		},
+		Port:    7777,
+		Twitch:  TwitchCfg{Enabled: true},
+		Kick:    KickCfg{Enabled: true},
+		Songs:   SongsCfg{Mode: "json"},
+		Rules:   Rules{MaxPerUser: 2, MaxQueue: 50, BlockDuplicates: true, PriorityRoles: false},
+		Site:    SiteCfg{Branch: "data", AutoPublish: true},
+		Overlay: defaultOverlay(),
 	}
 }
 
@@ -166,12 +158,7 @@ func (c Config) Normalize() Config {
 			c.Site.URL = "https://" + strings.ToLower(owner) + ".github.io/" + repo + "/"
 		}
 	}
-	if c.Overlay.Items < 1 || c.Overlay.Items > 12 {
-		c.Overlay.Items = d.Overlay.Items
-	}
-	if !regexp.MustCompile(`^#[0-9a-fA-F]{6}$`).MatchString(c.Overlay.Accent) {
-		c.Overlay.Accent = d.Overlay.Accent
-	}
+	c.Overlay = c.Overlay.Normalize()
 	return c
 }
 

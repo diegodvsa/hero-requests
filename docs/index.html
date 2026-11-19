@@ -17,8 +17,15 @@
   <section class="songs">
     <div class="tools">
       <input id="q" type="search" placeholder="Buscar por artista ou música…" aria-label="Buscar músicas" autocomplete="off">
-      <select id="genre" aria-label="Filtrar por gênero"><option value="">Todos os gêneros</option></select>
     </div>
+    <div class="filters" id="filters">
+      <label>Artista<input id="f-artist" type="search" list="dl-artist" placeholder="Qualquer artista" autocomplete="off"></label>
+      <label>Álbum<input id="f-album" type="search" list="dl-album" placeholder="Qualquer álbum" autocomplete="off"></label>
+      <label id="w-source">Fonte<select id="f-source"><option value="">Todas as fontes</option></select></label>
+      <label id="w-genre">Gênero<select id="f-genre"><option value="">Todos os gêneros</option></select></label>
+      <button id="clear" class="btn sm" type="button" hidden>Limpar filtros</button>
+    </div>
+    <datalist id="dl-artist"></datalist><datalist id="dl-album"></datalist>
     <div class="count" id="count"></div>
     <ul id="list" class="list"></ul>
     <button id="more" class="btn" type="button" hidden>Mostrar mais</button>

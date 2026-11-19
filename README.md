@@ -78,7 +78,7 @@ Na primeira vez o app abre um **assistente de configuração** em 4 passos. Tudo
 1. **Seus chats:** informe o canal da Twitch e/ou da Kick (aceita `nome` ou a URL do canal). Marque só os que você usa.
 2. **Lista de músicas:** escolha o arquivo JSON exportado pelo jogo (ou a pasta de músicas) e clique em **Testar leitura**. O app mostra quantas músicas encontrou.
 3. **Regras:** máximo de pedidos por pessoa, tamanho da fila, bloquear música repetida e prioridade para subs/VIPs/moderadores.
-4. **Site e overlay (opcional):** repositório e token do GitHub para publicar o site, número de músicas e cor do overlay.
+4. **Site (opcional):** repositório e token do GitHub para publicar o site. A aparência do overlay é no botão **Overlay** do painel.
 
 No fim, o assistente mostra o endereço do overlay para colar no OBS. Para testar sem estar ao vivo, use **Simular pedido** no painel.
 
@@ -124,16 +124,28 @@ A fila é salva em disco a cada mudança: se o app fechar, ela volta como estava
 2. URL: `http://127.0.0.1:7777/overlay`
 3. Largura `1920`, altura `1080`. O fundo é transparente.
 
-Parâmetros opcionais na URL:
+### Personalizar o overlay
 
-| Parâmetro | Exemplo | Efeito |
-|---|---|---|
-| `items` | `?items=8` | Quantas músicas da fila aparecem |
-| `accent` | `?accent=%2300c2ff` | Cor de destaque (o `#` vira `%23`) |
-| `pos` | `?pos=left` | Posição à esquerda (padrão: direita) |
-| `hint` | `?hint=0` | Esconde a dica "Peça com !pedir" |
+No painel, clique em **Overlay** (ou em **Personalizar**). Você vê uma pré-visualização ao vivo em 1920×1080 e, ao clicar em **Salvar**, o overlay no OBS atualiza sozinho, sem recarregar a fonte.
 
-Combine com `&`, por exemplo `/overlay?items=8&pos=left`.
+| Grupo | O que dá para mudar |
+|---|---|
+| **Temas prontos** | Escuro, Vidro, Claro, Neon e Sem caixas. Um tema troca cores e estilo e mantém posição e tamanho. |
+| **Posição e tamanho** | Canto da tela (4 opções), margem, largura e quantas músicas da fila aparecem |
+| **Fonte** | Fontes do sistema, ou qualquer fonte instalada no PC, ou do **Google Fonts** (digite o nome, ex.: `Press Start 2P`), tamanho do texto e do título |
+| **Cores** | Destaque, texto, texto secundário, fundo das caixas e borda |
+| **Caixas** | **Opacidade do fundo (0 a 100%)**, opacidade e espessura da borda, arredondamento, espaço interno, espaço entre caixas, desfoque do fundo (efeito vidro) e a barra colorida da música atual |
+| **Conteúdo** | Ligar/desligar a música atual, a fila, a dica, os ícones T/K, quem pediu e os títulos; textos dos títulos e da dica |
+| **Avançado** | CSS personalizado e exportar/importar o tema (para compartilhar com outros streamers) |
+
+A pré-visualização tem fundos de teste (jogo, escuro, claro e xadrez) para você ver a transparência. Use **Restaurar padrão** para voltar ao começo. Se usar uma fonte do Google Fonts, o OBS precisa de internet; fontes instaladas no PC funcionam offline.
+
+Classes disponíveis para o CSS personalizado: `.box` (todas as caixas), `.now` (música atual), `.lbl` (títulos), `.t` (título da música), `.sub`, `.row` (linha da fila), `.nm` (nome), `.by` (quem pediu), `.src` (ícone da plataforma) e `.hint` (dica). Exemplo:
+
+```css
+.box { box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+.t { text-transform: uppercase; }
+```
 
 ---
 
@@ -158,6 +170,7 @@ Nomes de campo reconhecidos (sem diferenciar maiúsculas, `_` ou `-`):
 | Gênero | `genre` |
 | Charter | `charter`, `frets`, `author` |
 | Ano | `year` |
+| Fonte da música (source) | `source`, `sources`, `sourcename`, `origin` |
 
 Músicas repetidas (mesmo artista e título, com charters diferentes) aparecem uma vez só.
 
@@ -187,6 +200,15 @@ Viewer abre https://usuario.github.io/repo ◄─┘  (site em docs/)
    - Copie o token (`github_pat_...`).
 4. **No app:** *Configurações > Site público*. Informe `SEU_USUARIO/NOME_DO_REPO` e cole o token. Marque *Publicar a fila automaticamente*.
 5. Clique em **Publicar agora** no painel. O app cria a branch `data` (se não existir) e envia `songs.json` e `queue.json`.
+
+### O que o site oferece
+
+- Busca livre por artista ou música.
+- Filtros por **artista**, **álbum**, **fonte** (source) e **gênero**, que podem ser combinados.
+- Clicar no artista, álbum, fonte ou gênero de uma música aplica aquele filtro.
+- Os filtros ficam no endereço, então dá para compartilhar uma busca, por exemplo `.../hero-requests/#source=Customs&artist=Metallica`.
+- Filtros de dados que a sua lista não tem (por exemplo, sem `source`) ficam escondidos automaticamente.
+- Botão **Copiar pedido** em cada música.
 
 ### Como funciona
 
@@ -225,7 +247,7 @@ Todas as opções ficam em `data/config.json` e podem ser editadas pelo botão *
 | Regras | Máx. por pessoa, tamanho da fila | Limites |
 | Regras | Bloquear repetidas, prioridade | Comportamentos |
 | Site | Repositório, token, auto-publicar, URL | Publicação no GitHub |
-| Overlay | Itens e cor | Aparência |
+| Overlay | Botão **Overlay** do painel | Aparência completa (veja a seção 5) |
 | Avançado | Porta | Reinicie o app depois de mudar |
 
 ---
@@ -260,9 +282,10 @@ Go (somente biblioteca padrão + `gorilla/websocket`), sem CGO. A interface web 
 ├── commands.go      # !pedir, !fila... (independente de plataforma)
 ├── twitch.go        # IRC sobre WebSocket (wss://irc-ws.chat.twitch.tv)
 ├── kick.go          # chat da Kick via Pusher (WebSocket)
+├── overlay.go       # aparência do overlay: campos, limites e validação
 ├── publish.go       # envia songs.json/queue.json para a branch "data" (API do GitHub)
 ├── server.go        # API HTTP, proteção contra acesso externo, arquivos embutidos
-├── web/             # painel, assistente, overlay (embutidos)
+├── web/             # painel, assistente, editor do overlay e overlay (embutidos)
 ├── docs/            # site estático (GitHub Pages)
 └── .github/workflows/  # CI e release
 ```
@@ -276,6 +299,7 @@ Go (somente biblioteca padrão + `gorilla/websocket`), sem CGO. A interface web 
 | GET | `/api/events` | Estado completo por Server-Sent Events |
 | GET | `/api/state` | Estado atual |
 | GET/PUT | `/api/config` | Lê/salva configuração (tokens mascarados) |
+| GET/PUT | `/api/overlay`, `/api/overlay/defaults` | Aparência do overlay (padrão e salvar) |
 | POST | `/api/queue/{next,done,play,remove,move,clear,add}` | Controle da fila |
 | POST | `/api/open` | Abre/fecha pedidos |
 | GET | `/api/songs/search?q=` | Busca na biblioteca |

@@ -3,25 +3,36 @@
 <head>
 <meta charset="utf-8">
 <title>Overlay</title>
-<style>
-:root{--accent:#ff8a3d;--panel:#0f1117e6;--line:#2a2e3c;--fg:#e8eaf2;--mute:#8b91a5}
-html,body{margin:0;background:transparent;color:var(--fg);font:15px/1.4 "Inter","Segoe UI",system-ui,sans-serif;overflow:hidden}
-#wrap{position:fixed;top:16px;right:16px;width:380px;display:flex;flex-direction:column;gap:8px}
-body.left #wrap{right:auto;left:16px}
-.now{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:10px;padding:10px 14px}
-.lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
-.t{font:700 20px/1.2 "Space Grotesk","Segoe UI",sans-serif;overflow-wrap:anywhere}
-.sub{color:var(--mute);font-size:13px}
-.q{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:5px}
-.row{display:flex;align-items:center;gap:8px;min-width:0}
-.n{width:16px;color:var(--mute);font-variant-numeric:tabular-nums;text-align:right}
+<style id="base">
+:root{
+  color-scheme:dark; /* igual ao painel: evita fundo branco opaco na pré-visualização */
+  --accent:#ff8a3d;--text:#e8eaf2;--muted:#8b91a5;--bg:rgba(15,17,23,1);--border:rgba(42,46,60,1);
+  --font:"Segoe UI",system-ui,sans-serif;--fs:15px;--ts:20px;--ls:11px;
+  --radius:10px;--bw:1px;--pad:12px;--gap:8px;--blur:0px;--margin:16px;--width:380px;
+}
+html,body{margin:0;background:transparent;color:var(--text);font:var(--fs)/1.4 var(--font);overflow:hidden}
+#wrap{position:fixed;width:var(--width);display:flex;flex-direction:column;gap:var(--gap)}
+#wrap.tr{top:var(--margin);right:var(--margin)}
+#wrap.tl{top:var(--margin);left:var(--margin)}
+#wrap.br{bottom:var(--margin);right:var(--margin)}
+#wrap.bl{bottom:var(--margin);left:var(--margin)}
+.box{background:var(--bg);border:var(--bw) solid var(--border);border-radius:var(--radius);padding:var(--pad);
+  -webkit-backdrop-filter:blur(var(--blur));backdrop-filter:blur(var(--blur));min-width:0}
+.now.bar{border-left:5px solid var(--accent)}
+.lbl{font-size:var(--ls);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:2px}
+.t{font-size:var(--ts);font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.sub{color:var(--muted);font-size:.87em}
+.row{display:flex;align-items:center;gap:8px;min-width:0;padding:2px 0}
+.n{width:1.2em;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;flex:none}
 .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.by{color:var(--mute);font-size:12px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
-.src{width:16px;height:16px;border-radius:4px;display:inline-grid;place-items:center;font-size:10px;font-weight:700;flex:none;background:var(--line)}
+.by{color:var(--muted);font-size:.85em;white-space:nowrap;max-width:9em;overflow:hidden;text-overflow:ellipsis}
+.src{width:1.15em;height:1.15em;border-radius:4px;display:inline-grid;place-items:center;font-size:.72em;font-weight:700;flex:none;background:var(--border)}
 .src.twitch{background:#9146ff;color:#fff}.src.kick{background:#53fc18;color:#0b1a00}.src.manual{background:var(--accent);color:#1a0d00}
-.hint{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:6px 12px;font-size:12px;color:var(--mute)}
-code{color:var(--accent);font-family:ui-monospace,Menlo,Consolas,monospace}
+.hint{color:var(--muted);font-size:.85em}
+.hint.box{border-style:dashed}
+code,.hint b{color:var(--accent);font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:400}
 </style>
+<style id="custom"></style>
 </head>
 <body>
 <div id="wrap"></div>
