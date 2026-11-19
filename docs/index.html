@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pedidos de música</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1 id="title">Pedidos de música</h1>
+    <span class="status" id="status"><i></i><span id="status-text">carregando…</span></span>
+  </div>
+</header>
+<main>
+  <section class="songs">
+    <div class="tools">
+      <input id="q" type="search" placeholder="Buscar por artista ou música…" aria-label="Buscar músicas" autocomplete="off">
+      <select id="genre" aria-label="Filtrar por gênero"><option value="">Todos os gêneros</option></select>
+    </div>
+    <div class="count" id="count"></div>
+    <ul id="list" class="list"></ul>
+    <button id="more" class="btn" type="button" hidden>Mostrar mais</button>
+  </section>
+  <aside>
+    <h2>Tocando agora</h2>
+    <div id="now" class="card"></div>
+    <h2>Na fila <button id="refresh" class="btn sm" type="button">Atualizar</button></h2>
+    <ol id="queue" class="queue"></ol>
+    <p class="how">Para pedir, digite no chat da live:<br><code>!pedir artista - música</code><br>ou toque em “Copiar pedido” e cole no chat.</p>
+    <p class="muted" id="updated"></p>
+  </aside>
+</main>
+<script src="site.js"></script>
+</body>
+</html>
