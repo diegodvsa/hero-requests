@@ -17,26 +17,95 @@ import (
 // A Kick usa o Pusher para o chat. A chave e o cluster são públicos (vêm do site da Kick)
 // e podem ser trocados em Configurações caso a Kick mude.
 const (
-	defaultPusherKey     = "32cbd69e4b950bf97679"
 	defaultPusherCluster = "us2"
 	kickUA               = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
 
-func pusherURL(c KickCfg) string {
-	key, cluster := c.PusherKey, c.PusherCluster
-	if key == "" {
-		key = defaultPusherKey
+// knownPusherKeys são as chaves públicas já usadas pelo site da Kick, da mais nova para a
+// mais antiga. Se a conexão for recusada com "app key not found" (código 4001), o app tenta
+// a próxima sozinho. Uma chave informada em Configurações tem prioridade e é a única usada.
+var knownPusherKeys = []string{"34bf7a0ff419a2a775b9", "eb1d5f283081a78b932c", "32cbd69e4b950bf97679"}
+
+// kickNegotiateURL pergunta à Kick qual chave do Pusher está valendo agora. Assim, quando a
+// Kick trocar a chave de novo, o app acompanha sozinho. É variável para os testes.
+var kickNegotiateURL = "https://web.kick.com/api/v1/realtime/connection"
+
+type negotiation struct {
+	Data struct {
+		Connections []struct {
+			Provider    string `json:"provider"`
+			Credentials struct {
+				AppKey  string `json:"app_key"`
+				Cluster string `json:"cluster"`
+			} `json:"credentials"`
+		} `json:"connections"`
+	} `json:"data"`
+}
+
+// negotiate devolve a chave e o cluster atuais do Pusher segundo a própria Kick.
+func negotiate(ctx context.Context) (key, cluster string, err error) {
+	body := `{"client":{"id":"hero-requests","type":"web"},"capabilities":{"accepted_providers":[{"provider":"pusher"}]}}`
+	req, _ := http.NewRequestWithContext(ctx, "POST", kickNegotiateURL, strings.NewReader(body))
+	req.Header.Set("User-Agent", kickUA)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Origin", "https://kick.com")
+	req.Header.Set("Referer", "https://kick.com/")
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err != nil {
+		return "", "", err
 	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	var n negotiation
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&n); err != nil {
+		return "", "", err
+	}
+	for _, c := range n.Data.Connections {
+		if c.Provider == "pusher" && c.Credentials.AppKey != "" && c.Credentials.Cluster != "" {
+			return c.Credentials.AppKey, c.Credentials.Cluster, nil
+		}
+	}
+	return "", "", errors.New("a Kick não ofereceu o Pusher")
+}
+
+// errBadKey indica que o Pusher recusou a chave (códigos 4000 a 4009).
+var errBadKey = errors.New("o Pusher recusou a chave do chat da Kick")
+
+func pusherURL(cluster, key string) string {
 	if cluster == "" {
 		cluster = defaultPusherCluster
 	}
-	return "wss://ws-" + cluster + ".pusher.com/app/" + key + "?protocol=7&client=js&version=8.4.0-rc2&flash=false"
+	return "wss://ws-" + cluster + ".pusher.com/app/" + key + "?protocol=7&client=js&version=8.4.0&flash=false"
 }
 
 type KickChat struct {
 	cfg    KickCfg
 	out    chan<- ChatMessage
 	status *Status
+	keyIdx int // posição em knownPusherKeys da chave que está sendo testada
+
+	skipNegotiate bool // a chave negociada foi recusada: usa a lista de chaves conhecidas
+}
+
+func (k *KickChat) key() string {
+	if k.cfg.PusherKey != "" {
+		return k.cfg.PusherKey
+	}
+	return knownPusherKeys[k.keyIdx%len(knownPusherKeys)]
+}
+
+// credentials escolhe a chave e o cluster: o que o usuário informou, depois o que a Kick
+// informa agora e, por último, a lista de chaves conhecidas.
+func (k *KickChat) credentials(ctx context.Context) (key, cluster string) {
+	if k.cfg.PusherKey == "" && !k.skipNegotiate {
+		if nk, nc, err := negotiate(ctx); err == nil {
+			return nk, nc
+		}
+	}
+	return k.key(), k.cfg.PusherCluster
 }
 
 func newKickChat(cfg KickCfg, out chan<- ChatMessage, st *Status) *KickChat {
@@ -48,12 +117,26 @@ func (k *KickChat) Send(string) {}
 
 func (k *KickChat) Run(ctx context.Context) {
 	backoff := 2 * time.Second
+	tried := 0
 	for ctx.Err() == nil {
 		k.status.Set("conectando", "")
 		err := k.session(ctx)
 		if ctx.Err() != nil {
 			return
 		}
+		if errors.Is(err, errBadKey) && k.cfg.PusherKey == "" {
+			if !k.skipNegotiate {
+				k.skipNegotiate = true // a chave da Kick falhou; testa a lista conhecida
+				continue
+			}
+			if tried < len(knownPusherKeys)-1 {
+				tried++
+				k.keyIdx++
+				continue // testa a próxima chave conhecida na hora
+			}
+			k.skipNegotiate = false // deu a volta: tenta negociar de novo na próxima rodada
+		}
+		tried = 0
 		msg := "conexão perdida"
 		if err != nil {
 			msg = err.Error()
@@ -113,7 +196,8 @@ func (k *KickChat) session(ctx context.Context) error {
 		return err
 	}
 	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second, Proxy: http.ProxyFromEnvironment}
-	conn, _, err := dialer.DialContext(ctx, pusherURL(k.cfg), http.Header{"User-Agent": {kickUA}})
+	key, cluster := k.credentials(ctx)
+	conn, _, err := dialer.DialContext(ctx, pusherURL(cluster, key), http.Header{"User-Agent": {kickUA}})
 	if err != nil {
 		return err
 	}
@@ -129,6 +213,10 @@ func (k *KickChat) session(ctx context.Context) error {
 		conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
 		_, data, err := conn.ReadMessage()
 		if err != nil {
+			var ce *websocket.CloseError
+			if errors.As(err, &ce) && ce.Code >= 4000 && ce.Code <= 4009 {
+				return fmt.Errorf("%w (código %d: %s)", errBadKey, ce.Code, ce.Text)
+			}
 			return err
 		}
 		var f pusherFrame
@@ -141,6 +229,14 @@ func (k *KickChat) session(ctx context.Context) error {
 		case "pusher_internal:subscription_succeeded":
 			k.status.Set("conectado", k.cfg.Channel+" · somente leitura")
 		case "pusher:error":
+			var pe struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			}
+			_ = json.Unmarshal([]byte(f.Data), &pe)
+			if pe.Code >= 4000 && pe.Code <= 4009 {
+				return fmt.Errorf("%w (código %d: %s)", errBadKey, pe.Code, pe.Message)
+			}
 			return fmt.Errorf("erro do Pusher: %s", f.Data)
 		case `App\Events\ChatMessageEvent`:
 			if m, ok := parseKickMessage(f.Data); ok {

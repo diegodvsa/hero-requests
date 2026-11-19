@@ -242,7 +242,7 @@ Todas as opções ficam em `data/config.json` e podem ser editadas pelo botão *
 | Chats | Canal da Twitch / Kick | Nome ou URL do canal |
 | Chats | Bot (avançado) | Usuário e token OAuth para responder na Twitch |
 | Chats | ID do chat da Kick | Só se a consulta automática falhar |
-| Chats | Chave/cluster do Pusher | Só se a Kick trocar (ver Solução de problemas) |
+| Chats | Chave/cluster do Pusher | Normalmente vazio: o app descobre sozinho (ver Solução de problemas) |
 | Músicas | Modo e caminho | JSON ou pasta |
 | Regras | Máx. por pessoa, tamanho da fila | Limites |
 | Regras | Bloquear repetidas, prioridade | Comportamentos |
@@ -258,7 +258,7 @@ Todas as opções ficam em `data/config.json` e podem ser editadas pelo botão *
 |---|---|
 | **Twitch: erro de conexão** | Confira o nome do canal. O app tenta reconectar sozinho com espera crescente. Firewall precisa liberar saída na porta 443. |
 | **Kick: "bloqueou a consulta automática"** | A Kick às vezes bloqueia a busca do ID do chat. Abra `https://kick.com/api/v2/channels/SEU_CANAL` no navegador, copie o valor de `chatroom` > `id` e cole em *ID do chat da Kick*. |
-| **Kick: "App key ... not in this cluster"** | A Kick mudou a chave pública do chat (Pusher). Em *Avançado* informe a nova chave e o cluster (veja nas ferramentas de rede do navegador, em uma conexão WebSocket em `kick.com`, o trecho `ws-CLUSTER.pusher.com/app/CHAVE`). Se puder, abra uma issue com os valores novos. |
+| **Kick: "recusou a chave do chat" (código 4001)** | A Kick troca a chave pública do chat de tempos em tempos. O app pergunta a chave atual à Kick a cada conexão e, se isso falhar, testa chaves conhecidas, então normalmente se resolve sozinho. Se persistir, atualize o app para a última versão. Como último recurso, em *Avançado* informe a chave e o cluster que o site da Kick está usando (nas ferramentas de rede do navegador, em uma conexão WebSocket em `kick.com`, o trecho `ws-CLUSTER.pusher.com/app/CHAVE`). |
 | **"o arquivo não é um JSON válido"** | Confirme que escolheu o JSON certo. Veja [Lista de músicas](#6-lista-de-músicas). |
 | **Músicas não aparecem no site** | Clique em *Publicar agora* e veja o erro no painel. Confira o nome `usuario/repo`, as permissões do token (*Contents: read and write*) e se o Pages está ativo em `main` / `docs`. |
 | **Erro 403/404 ao publicar** | Token sem permissão ou de outro repositório. |
@@ -317,12 +317,7 @@ go test ./...            # busca, fila, comandos, IRC, Kick, config e publicaç�
 go run . -no-browser     # roda local
 ```
 
-**Release:** crie uma tag e o GitHub Actions compila para Windows, Linux e macOS e anexa os zips ao Release.
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
+**Releases automáticas:** a cada alteração no código (`.go`, `web/`, `go.mod`, `go.sum`) enviada para a branch `main`, o GitHub Actions roda os testes, compila para Windows, Linux e macOS e publica um Release novo (`v1.0.N`) com os zips. Mudanças só em `docs/` ou no README não geram versão. Não precisa criar tag nem fazer nada à mão. Também dá para forçar uma versão em *Actions > Release > Run workflow*. Para usar, o repositório precisa permitir que o Actions escreva: *Settings > Actions > General > Workflow permissions > Read and write permissions*.
 
 **Contribuindo:** issues e PRs são bem-vindos. Ideias: resposta no chat da Kick (OAuth), votos para furar a fila, histórico/ranking, leitura automática da música atual do jogo, tradução da interface.
 
@@ -332,7 +327,7 @@ git push origin v0.1.0
 
 - A fila do **site** tem atraso (publicação a cada mudança + consulta a cada 60 s). O overlay é em tempo real.
 - O pedido é feito **somente pelo chat**; o site só mostra a lista e copia o comando.
-- **Kick:** a leitura depende da chave pública do Pusher, que a Kick pode trocar (configurável em *Avançado*), e não há resposta no chat da Kick ainda.
+- **Kick:** a leitura usa o canal não documentado de chat da Kick, que pode mudar sem aviso (o app descobre a chave atual sozinho, mas uma mudança maior exigirá atualização), e não há resposta no chat da Kick ainda.
 - O leitor de músicas foi feito para ser tolerante, mas ainda não foi validado com todos os formatos de exportação do Clone Hero e do YARG. Se o seu não funcionar, abra uma issue.
 - A interface está em português do Brasil.
 

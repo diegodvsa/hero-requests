@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -301,5 +305,54 @@ func TestOverlayNormalize(t *testing.T) {
 	g.FontFamily, g.FontGoogle = "Press Start 2P", true
 	if g.Normalize().FontFamily != "Press Start 2P" {
 		t.Error("nome de fonte do Google deve passar")
+	}
+}
+
+func TestPusherURL(t *testing.T) {
+	k := &KickChat{}
+	if u := pusherURL("", k.key()); !strings.Contains(u, "ws-us2.pusher.com/app/"+knownPusherKeys[0]) {
+		t.Error(u)
+	}
+	k.keyIdx = 1
+	if k.key() != knownPusherKeys[1] {
+		t.Error("deveria usar a segunda chave")
+	}
+	custom := &KickChat{cfg: KickCfg{PusherKey: "abc", PusherCluster: "eu"}}
+	key, cl := custom.credentials(context.Background())
+	if u := pusherURL(cl, key); !strings.Contains(u, "ws-eu.pusher.com/app/abc") {
+		t.Error(u)
+	}
+}
+
+func TestKickNegotiate(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if r.Method != "POST" || !strings.Contains(string(b), `"provider":"pusher"`) {
+			w.WriteHeader(400)
+			return
+		}
+		io.WriteString(w, `{"data":{"connections":[{"provider":"centrifugo","credentials":{}},{"provider":"pusher","credentials":{"app_key":"NOVA123","cluster":"eu"}}],"mode":"websocket"},"message":"success"}`)
+	}))
+	defer srv.Close()
+	old := kickNegotiateURL
+	kickNegotiateURL = srv.URL
+	defer func() { kickNegotiateURL = old }()
+
+	k := &KickChat{}
+	key, cl := k.credentials(context.Background())
+	if key != "NOVA123" || cl != "eu" {
+		t.Errorf("negociada: %s %s", key, cl)
+	}
+	// se a negociação falha, usa a lista conhecida
+	kickNegotiateURL = "http://127.0.0.1:1/nada"
+	key, cl = (&KickChat{}).credentials(context.Background())
+	if key != knownPusherKeys[0] || cl != "" {
+		t.Errorf("reserva: %s %q", key, cl)
+	}
+	// chave recusada pela Kick: pula a negociação
+	k.skipNegotiate = true
+	kickNegotiateURL = srv.URL
+	if key, _ := k.credentials(context.Background()); key != knownPusherKeys[0] {
+		t.Errorf("skipNegotiate: %s", key)
 	}
 }
